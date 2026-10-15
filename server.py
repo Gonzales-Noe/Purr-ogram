@@ -151,13 +151,21 @@ def to_int(value):
         return None
 
 
+def clean_name(raw):
+    return re.sub(r' +', ' ', NOT_NAME.sub('', str(raw or '').upper())).strip()[:MAX_NAME]
+
+
+def name_owner(players, name):
+    return next((p['id'] for p in players.values() if p.get('name') == name), None)
+
+
 def merge_player(players, body, from_cloud=False):
     """Merges a player record. Records only ever grow: best scores keep the maximum,
     badges and prizes are added, nothing is removed. Returns (player id, error)."""
     pid = str(body.get('id', ''))
     if not PLAYER_ID_RE.match(pid):
         return None, 'Invalid player id.'
-    name = re.sub(r' +', ' ', NOT_NAME.sub('', str(body.get('name', '')).upper())).strip()[:MAX_NAME]
+    name = clean_name(body.get('name'))
     if not name:
         return None, 'Invalid name.'
     now = now_ms()
@@ -517,6 +525,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.verify_pin()
         if path == '/api/record':
             return self.record_player()
+        if path == '/api/new-player':
+            return self.new_player()
         if path == '/admin/login':
             return self.login()
         if path == '/admin/logout':
@@ -576,6 +586,23 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({'error': 'Invalid request.'}, HTTPStatus.BAD_REQUEST)
         with lock:
             players = load_players()
+            pid, error = merge_player(players, body)
+            if error:
+                return self.send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+            save_players(players)
+        Cloud.mark(pid)
+        self.send_json({'ok': True})
+
+    def new_player(self):
+        """Registers a new player only if no other player already has that name (checked and saved in one step)."""
+        body = self.read_json()
+        if body is None:
+            return self.send_json({'error': 'Invalid request.'}, HTTPStatus.BAD_REQUEST)
+        with lock:
+            players = load_players()
+            owner = name_owner(players, clean_name(body.get('name')))
+            if owner and owner != str(body.get('id', '')):
+                return self.send_json({'ok': False, 'taken': True}, HTTPStatus.CONFLICT)
             pid, error = merge_player(players, body)
             if error:
                 return self.send_json({'error': error}, HTTPStatus.BAD_REQUEST)

@@ -28,12 +28,25 @@ const Records = {
   get me() { const p = Save.data.player; return (p && this.data.players[p.id]) || null; },
   get name() { return this.me ? this.me.name : ''; },
 
+  /* Resolves to false when the name is already used, here or on the booth server (all devices).
+     Without a server connection only this device's names are checked. */
   newPlayer(name) {
+    name = name.toUpperCase().replace(/ +/g, ' ').trim();
+    if (Object.values(this.data.players).some(p => p.name === name)) return Promise.resolve(false);
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-    this.data.players[id] = { id, name, created: Date.now(), best: {}, badges: {}, bonus: false, prizes: [], v: 0 };
-    Save.data.player = { id };
-    Save.store();
-    this.changed();
+    const player = { id, name, created: Date.now(), best: {}, badges: {}, bonus: false, prizes: [], v: 0 };
+    const check = !this.online ? Promise.resolve(true)
+      : fetch('/api/new-player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(player) })
+        .then(r => r.status !== 409, () => true);
+    return check.then(free => {
+      if (!free) return false;
+      Save.resetBadges();
+      this.data.players[id] = player;
+      Save.data.player = { id };
+      Save.store();
+      this.changed();
+      return true;
+    });
   },
   best(game) { return (this.me && this.me.best[game]) || 0; },
   score(game, score, badge) {

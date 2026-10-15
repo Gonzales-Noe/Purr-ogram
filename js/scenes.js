@@ -106,14 +106,14 @@ class TitleScene {
 
 /* ================= PLAYER NAME ================= */
 const NAME_KEYS = (() => {
-  const keys = [], kw = 18, gap = 2;
-  ['ABCDEFGHIJKLM', 'NOPQRSTUVWXYZ', '0123456789'].forEach((row, r) => {
-    const x0 = W / 2 - (row.length * (kw + gap) - gap) / 2;
-    [...row].forEach((c, i) => keys.push({ k: c, label: c, x: x0 + i * (kw + gap), y: 98 + r * 14, w: kw, h: 12 }));
+  const keys = [], kw = 22, gap = 2;
+  ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].forEach((row, r) => {
+    const x0 = Math.round(W / 2 - (row.length * (kw + gap) - gap) / 2);
+    [...row].forEach((c, i) => keys.push({ k: c, label: c, x: x0 + i * (kw + gap), y: 86 + r * 14, w: kw, h: 12 }));
   });
   let x = W / 2 - 79;
   for (const [label, k, w] of [['SPACE', ' ', 78], ['DEL', 'del', 38], ['OK', 'ok', 38]]) {
-    keys.push({ k, label, x, y: 140, w, h: 12 });
+    keys.push({ k, label, x, y: 144, w, h: 12 });
     x += w + 2;
   }
   return keys;
@@ -121,7 +121,7 @@ const NAME_KEYS = (() => {
 
 class NameScene {
   enter() {
-    this.t = 0; this.name = ''; this.msg = '';
+    this.t = 0; this.name = ''; this.msg = ''; this.checking = false;
     Input.textMode = true;
     Music.play('calm');
     Voice.say(TEKIS_SAYS.askName);
@@ -153,22 +153,28 @@ class NameScene {
   done() {
     const name = this.name.trim();
     if (!name) { this.msg = 'TYPE YOUR NAME FIRST!'; Sound.play('deny'); return; }
-    Save.resetBadges();
-    Records.newPlayer(name);
-    hub.reset();
-    Sound.play('select');
-    Game.go(new SplashScene());
+    if (this.checking) return;
+    this.checking = true;
+    this.msg = 'CHECKING NAME...';
+    Records.newPlayer(name).then(ok => {
+      this.checking = false;
+      if (Game.scene !== this) return;
+      if (!ok) { this.msg = 'NAME TAKEN! TRY ANOTHER ONE'; Sound.play('deny'); return; }
+      hub.reset();
+      Sound.play('select');
+      Game.go(new SplashScene());
+    });
   }
   draw() {
     rect(0, 0, W, H, PAL.bg);
     drawText("WHAT'S YOUR NAME?", W / 2, 12, PAL.white, { scale: 2, align: 'center', shadow: '#000' });
     drawText('YOUR SCORES AND PRIZES ARE SAVED UNDER THIS NAME', W / 2, 32, PAL.gray, { align: 'center' });
 
-    drawTekis(40, 48, this.t, { talking: Voice.speaking, mood: this.name ? 'excited' : 'normal' });
-    panel(92, 52, 176, 24, PAL.navy, PAL.yellow);
+    drawTekis(40, 46, this.t, { talking: Voice.speaking, mood: this.name ? 'excited' : 'normal' });
+    panel(92, 46, 176, 22, PAL.navy, PAL.yellow);
     const cursor = this.name.length < NAME_MAX && Math.floor(this.t * 2) % 2 ? '_' : '';
-    drawText(this.name + cursor, 102, 58, PAL.white, { scale: 2 });
-    drawText(this.msg || `LETTERS AND NUMBERS, UP TO ${NAME_MAX}`, 180, 82, this.msg ? PAL.red : '#64748b', { align: 'center' });
+    drawText(this.name + cursor, 102, 51, PAL.white, { scale: 2 });
+    drawText(this.msg || `LETTERS AND NUMBERS, UP TO ${NAME_MAX}`, 180, 73, this.msg && !this.checking ? PAL.red : '#64748b', { align: 'center' });
 
     const m = Input.mouse;
     for (const b of NAME_KEYS) {
@@ -177,7 +183,7 @@ class NameScene {
       panel(b.x, b.y, b.w, b.h, hover ? '#1e3a8a' : ok ? '#14532d' : PAL.navy, ok ? PAL.green : hover ? PAL.yellow : '#334155');
       drawText(b.label, b.x + b.w / 2, b.y + 3, ok ? PAL.green : PAL.white, { align: 'center' });
     }
-    drawText('TYPE OR TAP  -  ENTER: OK  -  ESC: BACK', W / 2, 162, '#64748b', { align: 'center' });
+    drawText('TYPE OR TAP  -  ENTER: OK  -  ESC: BACK', W / 2, 165, '#64748b', { align: 'center' });
   }
 }
 
