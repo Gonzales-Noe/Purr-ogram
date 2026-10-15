@@ -64,7 +64,7 @@ class TitleScene {
     ctx.globalAlpha = 1;
 
     drawText('CONVERGEIT', W / 2, 18, '#ffffff', { scale: 4, align: 'center', shadow: '#2563eb' });
-    drawText('QUEST 2026', W / 2, 54, '#facc15', { scale: 2, align: 'center', shadow: '#78350f' });
+    drawText('CONFERENCE 2026', W / 2, 54, '#facc15', { scale: 2, align: 'center', shadow: '#78350f' });
     drawText('CONVERGING TECHNOLOGIES FOR A RESPONSIBLE,', W / 2, 75, '#cbd5e1', { align: 'center' });
     drawText('SECURE, AND SUSTAINABLE DIGITAL FUTURE', W / 2, 84, '#cbd5e1', { align: 'center' });
     rect(W / 2 - 24, 96, 48, 1, '#1e40af');
