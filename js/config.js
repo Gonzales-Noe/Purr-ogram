@@ -11,6 +11,7 @@ const ORG = {
   // with server.py running, set the PIN at /admin instead.
   staffPin: '2026',
   // Typing this on the keyboard anywhere in the game opens the admin page (it still asks for the password).
+  // Typing it again on the admin page (outside text boxes) signs out and returns to the game.
   adminCode: 'PURRADMIN',
 };
 

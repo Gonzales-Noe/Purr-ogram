@@ -6,8 +6,9 @@ Serves the game and a password-protected /admin page. Only needs Python 3 (no in
     python server.py --lan        also reachable from phones/tablets on the same Wi-Fi
     python server.py --port 9000  use another port
 
-Admin login: username "admin", default password "techis2026" (change it on the /admin page,
-or set the ADMIN_PASSWORD environment variable, which always wins).
+Admin sign-in page: /admin/login (the game opens it when staff type the admin code or tap the hidden spot).
+Username "admin", default password "techis2026" (change it on the /admin page, or set the
+ADMIN_PASSWORD environment variable, which always wins). Sign-ins last 12 hours or until signed out.
 
 Data on this machine:
     data/wheel.json    prizes, staff PIN, hashed admin password
@@ -36,6 +37,7 @@ import threading
 import time
 import urllib.request
 from http import HTTPStatus
+from http.cookies import CookieError, SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
@@ -44,6 +46,7 @@ ROOT = Path(__file__).resolve().parent
 DATA_FILE = ROOT / 'data' / 'wheel.json'
 PLAYERS_FILE = ROOT / 'data' / 'players.json'
 ADMIN_PAGE = ROOT / 'admin' / 'admin.html'
+LOGIN_PAGE = ROOT / 'admin' / 'login.html'
 
 
 def load_env_file(path):
@@ -86,6 +89,10 @@ NOT_NAME = re.compile(r'[^A-Z0-9 ]')
 MAX_NAME, MAX_SCORE, MAX_PLAYERS, MAX_PLAYER_PRIZES = 10, 1_000_000, 50_000, 4
 
 PIN_MAX_FAILS, PIN_LOCK_SECONDS = 5, 60
+LOGIN_MAX_FAILS, LOGIN_LOCK_SECONDS = 5, 300
+SESSION_COOKIE, SESSION_SECONDS = 'purr_admin', 12 * 3600
+sessions = {}  # admin sign-in token -> expiry time (kept in memory: a server restart signs everyone out)
+login_fails = {}  # ip -> (fail count, locked until)
 pin_fails = {}  # ip -> (fail count, locked until)
 
 lock = threading.RLock()
@@ -385,24 +392,85 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         return body if isinstance(body, dict) else None
 
-    def is_admin(self):
-        header = self.headers.get('Authorization', '')
-        if header.startswith('Basic '):
-            try:
-                user, _, password = base64.b64decode(header[6:]).decode('utf-8').partition(':')
-            except (ValueError, UnicodeDecodeError):
-                user, password = '', ''
-            data = load()
-            if user == ADMIN_USER and hmac.compare_digest(hash_password(password, data['salt']), data['passwordHash']):
+    def session_token(self):
+        cookie = SimpleCookie()
+        try:
+            cookie.load(self.headers.get('Cookie', ''))
+        except CookieError:
+            return ''
+        return cookie[SESSION_COOKIE].value if SESSION_COOKIE in cookie else ''
+
+    def is_admin(self, page=False):
+        token = self.session_token()
+        with lock:
+            if token and sessions.get(token, 0) > time.time():
                 return True
-        body = b'Login required.'
-        self.send_response(HTTPStatus.UNAUTHORIZED)
-        self.send_header('WWW-Authenticate', 'Basic realm="TechIS Booth Admin", charset="UTF-8"')
-        self.send_header('Content-Type', 'text/plain')
+            sessions.pop(token, None)
+        if page:
+            self.send_response(HTTPStatus.SEE_OTHER)
+            self.send_header('Location', '/admin/login')
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+        else:
+            self.send_json({'error': 'Signed out. Sign in again.'}, HTTPStatus.UNAUTHORIZED)
+        return False
+
+    def session_cookie(self, token, max_age):
+        secure = '; Secure' if BEHIND_PROXY else ''
+        return f'{SESSION_COOKIE}={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Strict{secure}'
+
+    def end_session(self):
+        with lock:
+            sessions.pop(self.session_token(), None)
+
+    def login_page(self):
+        """Always starts signed out, so the hidden code / taps always lead to a fresh sign-in."""
+        self.end_session()
+        body = LOGIN_PAGE.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Set-Cookie', self.session_cookie('', 0))
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
-        return False
+
+    def login(self):
+        ip = self.client_ip()
+        now = time.time()
+        fails, locked_until = login_fails.get(ip, (0, 0))
+        if locked_until > now:
+            return self.send_json({'error': 'Too many wrong tries. Wait 5 minutes.'}, HTTPStatus.TOO_MANY_REQUESTS)
+        body = self.read_json() or {}
+        data = load()
+        user_ok = hmac.compare_digest(str(body.get('username', '')).strip().encode(), ADMIN_USER.encode())
+        pass_ok = hmac.compare_digest(hash_password(str(body.get('password', '')), data['salt']), data['passwordHash'])
+        if not (user_ok and pass_ok):
+            fails += 1
+            login_fails[ip] = (0, now + LOGIN_LOCK_SECONDS) if fails >= LOGIN_MAX_FAILS else (fails, 0)
+            return self.send_json({'error': 'Wrong username or password.'}, HTTPStatus.UNAUTHORIZED)
+        login_fails.pop(ip, None)
+        token = secrets.token_urlsafe(32)
+        with lock:
+            for old in [k for k, exp in sessions.items() if exp <= now]:
+                del sessions[old]
+            sessions[token] = now + SESSION_SECONDS
+        payload = json.dumps({'ok': True}).encode('utf-8')
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Set-Cookie', self.session_cookie(token, SESSION_SECONDS))
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def logout(self):
+        self.end_session()
+        payload = json.dumps({'ok': True}).encode('utf-8')
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Set-Cookie', self.session_cookie('', 0))
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def do_HEAD(self):
         if self.is_public_file(self.route()):
@@ -420,8 +488,10 @@ class Handler(SimpleHTTPRequestHandler):
                 players = sorted(load_players().values(), key=lambda p: p.get('updated', 0), reverse=True)
                 self.send_json({'players': players, 'games': GAME_IDS, 'cloud': Cloud.status()})
             return
+        if path == '/admin/login':
+            return self.login_page()
         if path == '/admin':
-            if not self.is_admin():
+            if not self.is_admin(page=True):
                 return
             body = ADMIN_PAGE.read_bytes()
             self.send_response(HTTPStatus.OK)
@@ -447,6 +517,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self.verify_pin()
         if path == '/api/record':
             return self.record_player()
+        if path == '/admin/login':
+            return self.login()
+        if path == '/admin/logout':
+            return self.logout()
         if path not in ('/admin/api/prizes', '/admin/api/settings', '/admin/api/claim', '/admin/api/import'):
             return self.send_error(HTTPStatus.NOT_FOUND)
         if not self.is_admin():

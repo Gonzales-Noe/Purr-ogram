@@ -161,6 +161,7 @@
     </section>
   </main>
 
+  <script src="/js/config.js"></script>
   <script>
     'use strict';
     const COLORS = ['#f472b6', '#22d3ee', '#fdd068', '#34d399', '#a78bfa', '#fb923c', '#60a5fa', '#f87171'];
@@ -232,8 +233,9 @@
       } catch (e) {
         throw new Error(OFFLINE);
       }
+      if (res.status === 401) { location.replace('/admin/login'); throw new Error('Signed out. Sign in again.'); }
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || (res.status === 401 ? 'Login expired. Reload the page.' : 'Request failed.'));
+      if (!res.ok) throw new Error(data.error || 'Request failed.');
       return data;
     }
 
@@ -442,6 +444,28 @@
     });
     loadPlayers();
     setInterval(() => { if (!document.hidden && !document.activeElement.matches('#players input')) loadPlayers(); }, 15000);
+
+    // Typing the admin code again (outside text boxes) signs out and goes back to the game.
+    function exitAdmin() {
+      fetch('/admin/logout', { method: 'POST' }).catch(() => {}).finally(() => location.replace('/'));
+    }
+    let typedCode = '';
+    window.addEventListener('keydown', e => {
+      if (e.target.matches('input, textarea, select') || !/^[a-z0-9]$/i.test(e.key)) return;
+      const code = (typeof ORG !== 'undefined' && ORG.adminCode || 'PURRADMIN').toUpperCase();
+      typedCode = (typedCode + e.key.toUpperCase()).slice(-code.length);
+      if (typedCode === code) { typedCode = ''; exitAdmin(); }
+    });
+    // iPad (no keyboard): 5 quick taps on the page title, same as the game's hidden gesture.
+    if (/iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+      let taps = 0, last = 0;
+      document.querySelector('header h1').addEventListener('pointerdown', () => {
+        const now = performance.now();
+        taps = now - last < 600 ? taps + 1 : 1;
+        last = now;
+        if (taps >= 5) { taps = 0; exitAdmin(); }
+      });
+    }
   </script>
 </body>
 </html>

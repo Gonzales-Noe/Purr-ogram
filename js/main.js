@@ -12,7 +12,7 @@ window.addEventListener('keydown', e => {
   if (!/^[a-z0-9]$/i.test(e.key)) return;
   const code = ORG.adminCode.toUpperCase();
   typedCode = (typedCode + e.key.toUpperCase()).slice(-code.length);
-  if (code && typedCode === code) { typedCode = ''; Voice.stop(); location.href = '/admin'; }
+  if (code && typedCode === code) { typedCode = ''; Voice.stop(); location.href = '/admin/login'; }
 });
 // iPad only (no keyboard for the code): 5 quick taps on the title screen's top-right corner open the admin page.
 const isIPad = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -22,7 +22,7 @@ if (isIPad) canvas.addEventListener('pointerdown', e => {
   if (Game.scene !== title || p.x < W - 70 || p.y > 24) { adminTaps = 0; return; }
   adminTaps = now - lastAdminTap < 600 ? adminTaps + 1 : 1;
   lastAdminTap = now;
-  if (adminTaps >= 5) { adminTaps = 0; Voice.stop(); location.href = '/admin'; }
+  if (adminTaps >= 5) { adminTaps = 0; Voice.stop(); location.href = '/admin/login'; }
 });
 // iPad Safari ignores user-scalable=no; block pinch and double-tap zoom so taps stay on the game.
 ['gesturestart', 'dblclick'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
