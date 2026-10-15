@@ -1,0 +1,61 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #03060f;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  touch-action: none;
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.25);
+}
+
+#touch {
+  display: none;
+}
+
+body.touch #touch {
+  display: block;
+}
+
+#touch button {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 2px solid rgba(34, 211, 238, 0.6);
+  background: rgba(15, 31, 77, 0.55);
+  color: #e0f2fe;
+  font: bold 20px monospace;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#touch .up    { left: 76px;  bottom: 132px; }
+#touch .down  { left: 76px;  bottom: 20px; }
+#touch .left  { left: 20px;  bottom: 76px; }
+#touch .right { left: 132px; bottom: 76px; }
+
+#touch .a {
+  right: 24px;
+  bottom: 50px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+}
+
+#touch .pause {
+  right: 24px;
+  top: 20px;
+  width: 44px;
+  height: 44px;
+}

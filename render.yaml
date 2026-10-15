@@ -1,0 +1,22 @@
+# Render blueprint: New > Blueprint, pick this GitHub repo, then fill in the secret values.
+# The free plan wipes the disk on every restart/deploy, so player records are backed up to a
+# Google Sheet (tools/google-sheets-sync.gs) and reloaded from it when the server starts.
+services:
+  - type: web
+    name: purr-ogram
+    runtime: python
+    plan: free
+    buildCommand: echo "No dependencies to install"
+    startCommand: python server.py
+    healthCheckPath: /api/prizes
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: STAFF_PIN
+        sync: false
+      - key: SHEETS_URL
+        sync: false
+      - key: SHEETS_KEY
+        sync: false

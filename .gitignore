@@ -1,0 +1,7 @@
+# Booth data: admin password hash, staff PIN and player records stay on the machine.
+data/
+sheets.env
+# Event documents (briefer, invitation, poster) - not used by the game.
+info/
+*.tmp
+__pycache__/

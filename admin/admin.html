@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PURR-OGRAM Admin - TechIS Booth</title>
+  <style>
+    :root { --bg: #1a0b2e; --card: #fff7fb; --pink: #f472b6; --hot: #db2777; --ink: #1e1b4b; --muted: #6b7280; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Consolas", "Courier New", monospace; }
+    header { padding: 18px 20px 8px; color: #fdd068; text-align: center; }
+    header h1 { margin: 0; font-size: 26px; letter-spacing: 2px; text-shadow: 3px 3px 0 var(--hot); }
+    header p { margin: 6px 0 0; color: #f9a8d4; }
+    main { max-width: 980px; margin: 0 auto; padding: 12px 16px 40px; display: grid; gap: 18px; grid-template-columns: 1fr 300px; }
+    @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border: 4px solid var(--pink); box-shadow: 6px 6px 0 #3b0d3a; padding: 16px; }
+    .card h2 { margin: 0 0 4px; color: var(--hot); font-size: 18px; letter-spacing: 1px; }
+    .hint { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; color: var(--muted); padding: 4px 6px; }
+    td { padding: 4px 6px; vertical-align: middle; }
+    .num { width: 26px; font-weight: bold; }
+    .swatch { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--ink); vertical-align: middle; }
+    input { font: inherit; padding: 6px 8px; border: 3px solid var(--ink); background: #fff; width: 100%; }
+    input:focus { outline: none; border-color: var(--hot); }
+    input.weight { width: 72px; }
+    .chance { width: 70px; text-align: right; font-weight: bold; }
+    .out { color: #b91c1c; font-size: 12px; }
+    button { font: inherit; font-weight: bold; letter-spacing: 1px; padding: 8px 14px; border: 3px solid var(--ink); background: #fdd068; color: var(--ink); cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
+    button:hover { filter: brightness(1.05); }
+    button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary { background: #34d399; }
+    button.del { background: #fca5a5; padding: 4px 10px; box-shadow: 2px 2px 0 var(--ink); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+    .msg { min-height: 1.4em; margin-top: 10px; font-weight: bold; }
+    .msg.ok { color: #047857; }
+    .msg.err { color: #b91c1c; }
+    .wheel { width: 240px; height: 240px; margin: 6px auto 10px; border-radius: 50%; border: 8px solid #3b0d3a; position: relative; }
+    .wheel::after { content: ""; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px; border-radius: 50%; background: var(--card); border: 3px solid #3b0d3a; }
+    .pointer { width: 0; height: 0; margin: 0 auto -6px; border: 12px solid transparent; border-top: 16px solid var(--pink); position: relative; z-index: 1; }
+    label { display: block; margin: 10px 0 4px; font-size: 13px; font-weight: bold; }
+    .stack { display: grid; gap: 18px; align-content: start; }
+    .wide { grid-column: 1 / -1; }
+    .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .stat { border: 3px solid var(--ink); padding: 4px 10px; font-weight: bold; background: #fff; }
+    .stat b { color: var(--hot); }
+    .tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    .tools input[type=search] { width: 220px; }
+    .tools label { display: inline-flex; gap: 6px; align-items: center; margin: 0; }
+    .tools input[type=checkbox] { width: auto; }
+    .scroll { max-height: 520px; overflow: auto; border: 3px solid var(--ink); background: #fff; }
+    #players th { position: sticky; top: 0; background: #fce7f3; color: var(--ink); }
+    #players td { border-top: 1px solid #f3e8ff; font-size: 14px; }
+    #players tr.winner td { background: #fef9c3; }
+    #players .r { text-align: right; }
+    .tag { display: inline-flex; align-items: center; gap: 4px; margin: 2px 4px 2px 0; padding: 1px 6px; border: 2px solid var(--hot); background: #fff; font-size: 13px; white-space: nowrap; }
+    .tag.done { border-color: #047857; color: #047857; text-decoration: line-through; }
+    .tag input { width: auto; margin: 0; }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TEKIS BOOTH ADMIN</h1>
+    <p>PURR-OGRAM: The ConvergeIT Quest &middot; Tech Innovators Society booth</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>PRIZES</h2>
+      <p class="hint">
+        Up to 8 prizes. <b>Weight</b> = slice size and chance: weight 3 is three times as likely as weight 1.
+        Set weight <b>0</b> when a prize runs out (it disappears from the wheel). Names: letters, numbers and basic symbols, max 18.
+        Players see changes the next time they open the wheel.
+      </p>
+      <table>
+        <thead><tr><th></th><th></th><th>PRIZE NAME</th><th>WEIGHT</th><th style="text-align:right">CHANCE</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="row">
+        <button id="add" type="button">+ ADD PRIZE</button>
+        <button id="savePrizes" class="primary" type="button">SAVE PRIZES</button>
+        <button id="reload" type="button">UNDO CHANGES</button>
+      </div>
+      <div id="prizeMsg" class="msg"></div>
+    </section>
+
+    <div class="stack">
+      <section class="card">
+        <h2>PREVIEW</h2>
+        <div class="pointer"></div>
+        <div id="wheel" class="wheel"></div>
+      </section>
+
+      <section class="card">
+        <h2>BOOTH SETTINGS</h2>
+        <p class="hint">Staff type this PIN in the game after checking a player followed TechIS, to unlock their bonus spin.</p>
+        <label for="pin">STAFF PIN (4-8 digits)</label>
+        <input id="pin" inputmode="numeric" maxlength="8" autocomplete="off">
+        <label for="pw1">NEW ADMIN PASSWORD (optional)</label>
+        <input id="pw1" type="password" autocomplete="new-password" placeholder="leave blank to keep">
+        <label for="pw2">CONFIRM NEW PASSWORD</label>
+        <input id="pw2" type="password" autocomplete="new-password">
+        <p id="pwEnv" class="hint" hidden>The admin password is set by <b>ADMIN_PASSWORD</b> on the host (Render). Change it there.</p>
+        <div class="row"><button id="saveSettings" class="primary" type="button">SAVE SETTINGS</button></div>
+        <div id="settingsMsg" class="msg"></div>
+      </section>
+    </div>
+
+    <section class="card wide">
+      <h2>PLAYERS &amp; WINNERS</h2>
+      <p class="hint">
+        Every player who typed a name, with their best scores and prizes. These records are permanent:
+        NEW PLAYER in the game never deletes them. Prize winners are highlighted. Tick a prize when it is handed out.
+        Saved on the server in <b>data/players.json</b>. Refreshes every 15 seconds.
+      </p>
+      <p id="cloud" class="hint"></p>
+      <div class="stats">
+        <span class="stat">PLAYERS <b id="nPlayers">0</b></span>
+        <span class="stat">ALL 5 BADGES <b id="nBadges">0</b></span>
+        <span class="stat">WINNERS <b id="nWinners">0</b></span>
+        <span class="stat">PRIZES NOT YET CLAIMED <b id="nUnclaimed">0</b></span>
+      </div>
+      <div class="tools">
+        <input id="search" type="search" placeholder="Search name...">
+        <label><input id="winnersOnly" type="checkbox"> Winners only</label>
+        <button id="refreshPlayers" type="button">REFRESH</button>
+        <button id="csv" type="button">DOWNLOAD CSV</button>
+        <button id="json" type="button">DOWNLOAD JSON</button>
+      </div>
+      <div class="scroll">
+        <table id="players">
+          <thead><tr id="playersHead"></tr></thead>
+          <tbody id="playerRows"></tbody>
+        </table>
+      </div>
+      <div id="playersMsg" class="msg"></div>
+    </section>
+
+    <section class="card wide">
+      <h2>THIS DEVICE</h2>
+      <p class="hint">
+        The game saves every player on the device it runs on first (in this browser's storage, works with no internet),
+        then sends them to the server when it is reachable. Export this device's records any time as a JSON or CSV file.
+        To restore or combine a JSON backup into the server records, use IMPORT JSON.
+      </p>
+      <div class="stats">
+        <span class="stat">PLAYERS ON THIS DEVICE <b id="nLocal">0</b></span>
+        <span class="stat">WAITING TO SYNC <b id="nPending">0</b></span>
+      </div>
+      <div class="tools">
+        <button id="syncNow" class="primary" type="button">SYNC NOW</button>
+        <button id="localJson" type="button">EXPORT JSON</button>
+        <button id="localCsv" type="button">EXPORT CSV</button>
+        <button id="importBtn" type="button">IMPORT JSON TO SERVER</button>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
+      </div>
+      <div id="localMsg" class="msg"></div>
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+    const COLORS = ['#f472b6', '#22d3ee', '#fdd068', '#34d399', '#a78bfa', '#fb923c', '#60a5fa', '#f87171'];
+    const NOT_DRAWABLE = /[^A-Z0-9 .,!?:\-+/'"()%><=*#&_~^♥]/g;
+    const MAX_PRIZES = 8;
+    const $ = id => document.getElementById(id);
+    let prizes = [];
+
+    const cleanLabel = s => s.toUpperCase().replace(NOT_DRAWABLE, '').slice(0, 18);
+
+    function showMsg(el, text, ok) {
+      el.textContent = text;
+      el.className = 'msg ' + (ok ? 'ok' : 'err');
+    }
+
+    function render() {
+      const active = prizes.filter(p => p.weight > 0);
+      const total = active.reduce((s, p) => s + p.weight, 0);
+      const rows = $('rows');
+      rows.innerHTML = '';
+      let shown = 0;
+      prizes.forEach((p, i) => {
+        const inStock = p.weight > 0;
+        const color = inStock ? COLORS[shown % COLORS.length] : '#d1d5db';
+        const num = inStock ? ++shown : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="num">${num}</td>
+          <td><span class="swatch" style="background:${color}"></span></td>
+          <td><input class="label" maxlength="18"></td>
+          <td><input class="weight" type="number" min="0" max="100" step="1"></td>
+          <td class="chance">${inStock && total ? (p.weight / total * 100).toFixed(1) + '%' : '<span class="out">OUT</span>'}</td>
+          <td><button class="del" type="button" title="Remove">X</button></td>`;
+        const label = tr.querySelector('.label'), weight = tr.querySelector('.weight');
+        label.value = p.label;
+        weight.value = p.weight;
+        label.addEventListener('input', () => {
+          const pos = label.selectionStart;
+          label.value = cleanLabel(label.value);
+          label.setSelectionRange(pos, pos);
+          p.label = label.value;
+        });
+        weight.addEventListener('change', () => {
+          p.weight = Math.max(0, Math.min(100, Math.round(Number(weight.value) || 0)));
+          render();
+        });
+        tr.querySelector('.del').addEventListener('click', () => { prizes.splice(i, 1); render(); });
+        rows.appendChild(tr);
+      });
+      $('add').disabled = prizes.length >= MAX_PRIZES;
+
+      let acc = 0;
+      const stops = active.map((p, i) => {
+        const from = acc / total * 100;
+        acc += p.weight;
+        return `${COLORS[i % COLORS.length]} ${from}% ${acc / total * 100}%`;
+      });
+      $('wheel').style.background = stops.length ? `conic-gradient(${stops.join(', ')})` : '#e5e7eb';
+    }
+
+    const OFFLINE = "Can't reach the server (no internet, or it is starting up - Render can take up to a minute). Try again shortly.";
+
+    async function api(path, body) {
+      let res;
+      try {
+        res = await fetch(location.origin + path, body ? {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        } : { cache: 'no-store' });
+      } catch (e) {
+        throw new Error(OFFLINE);
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || (res.status === 401 ? 'Login expired. Reload the page.' : 'Request failed.'));
+      return data;
+    }
+
+    async function loadState() {
+      const data = await api('/admin/api/state');
+      prizes = data.prizes.map(p => ({ ...p }));
+      $('pin').value = data.staffPin;
+      $('pwEnv').hidden = !data.passwordFromEnv;
+      $('pw1').disabled = $('pw2').disabled = !!data.passwordFromEnv;
+      render();
+    }
+
+    $('add').addEventListener('click', () => {
+      if (prizes.length < MAX_PRIZES) { prizes.push({ label: 'NEW PRIZE', weight: 1 }); render(); }
+    });
+    $('reload').addEventListener('click', () => loadState().then(() => showMsg($('prizeMsg'), 'Reloaded saved prizes.', true)));
+    $('savePrizes').addEventListener('click', async () => {
+      try {
+        const data = await api('/admin/api/prizes', { prizes });
+        prizes = data.prizes.map(p => ({ ...p }));
+        render();
+        showMsg($('prizeMsg'), 'Saved! The wheel uses these prizes from the next spin.', true);
+      } catch (e) { showMsg($('prizeMsg'), e.message, false); }
+    });
+    $('pin').addEventListener('input', () => { $('pin').value = $('pin').value.replace(/\D/g, ''); });
+    $('saveSettings').addEventListener('click', async () => {
+      const pw1 = $('pw1').value, pw2 = $('pw2').value;
+      if (pw1 !== pw2) return showMsg($('settingsMsg'), 'New passwords do not match.', false);
+      try {
+        const data = await api('/admin/api/settings', { staffPin: $('pin').value, newPassword: pw1 });
+        $('pw1').value = $('pw2').value = '';
+        showMsg($('settingsMsg'), data.passwordChanged
+          ? 'Saved! Password changed: reload and log in with the new password.'
+          : 'Saved! New staff PIN is active.', true);
+      } catch (e) { showMsg($('settingsMsg'), e.message, false); }
+    });
+
+    loadState().catch(e => showMsg($('prizeMsg'), e.message, false));
+
+    const GAME_NAMES = { ai: 'AI', cyber: 'CYBER', iot: 'IOT', green: 'GREEN', skills: 'SKILLS' };
+    let players = [], games = Object.keys(GAME_NAMES);
+    const total = p => games.reduce((s, g) => s + (p.best[g] || 0), 0);
+    const when = ms => new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const cell = (tr, text, cls) => { const td = tr.insertCell(); td.textContent = text; if (cls) td.className = cls; return td; };
+
+    function renderPlayers() {
+      $('nPlayers').textContent = players.length;
+      $('nBadges').textContent = players.filter(p => p.badges.length >= games.length).length;
+      $('nWinners').textContent = players.filter(p => p.prizes.length).length;
+      $('nUnclaimed').textContent = players.reduce((s, p) => s + p.prizes.filter(x => !x.claimed).length, 0);
+
+      const head = $('playersHead');
+      head.innerHTML = '';
+      ['NAME', ...games.map(g => GAME_NAMES[g] || g.toUpperCase()), 'TOTAL', 'BADGES', 'PRIZES WON (tick = claimed)', 'LAST PLAYED']
+        .forEach((h, i) => { const th = document.createElement('th'); th.textContent = h; if (i > 0 && i <= games.length + 2) th.className = 'r'; head.appendChild(th); });
+
+      const q = $('search').value.trim().toUpperCase();
+      const rows = $('playerRows');
+      rows.innerHTML = '';
+      const shown = players.filter(p => (!q || p.name.includes(q)) && (!$('winnersOnly').checked || p.prizes.length));
+      for (const p of shown) {
+        const tr = rows.insertRow();
+        if (p.prizes.length) tr.className = 'winner';
+        cell(tr, p.name).style.fontWeight = 'bold';
+        games.forEach(g => cell(tr, p.best[g] || 0, 'r'));
+        cell(tr, total(p), 'r').style.fontWeight = 'bold';
+        cell(tr, `${p.badges.length}/${games.length}${p.bonus ? ' +F' : ''}`, 'r').title = p.bonus ? '+F = followed TechIS (bonus spin)' : '';
+        const td = tr.insertCell();
+        if (!p.prizes.length) td.innerHTML = '<span class="muted">-</span>';
+        for (const prize of p.prizes) {
+          const tag = document.createElement('label');
+          tag.className = 'tag' + (prize.claimed ? ' done' : '');
+          tag.title = `Won ${when(prize.at)}`;
+          const box = document.createElement('input');
+          box.type = 'checkbox';
+          box.checked = prize.claimed;
+          box.addEventListener('change', () => claim(p, prize, box.checked));
+          tag.append(box, prize.prize);
+          td.appendChild(tag);
+        }
+        cell(tr, when(p.updated || p.created), 'muted');
+      }
+      if (!shown.length) {
+        const tr = rows.insertRow();
+        const td = cell(tr, players.length ? 'No players match.' : 'No players yet.', 'muted');
+        td.colSpan = games.length + 5;
+      }
+    }
+
+    function renderCloud(c) {
+      const el = $('cloud');
+      if (!c) { el.textContent = 'OFFLINE: showing the players saved on this device instead of the server list.'; el.style.color = '#b91c1c'; return; }
+      el.style.color = '';
+      if (!c.enabled) { el.textContent = 'Google Sheet backup: OFF (set SHEETS_URL and SHEETS_KEY on the server to turn it on).'; return; }
+      const last = c.lastOk ? `last synced ${when(c.lastOk)}` : 'not synced yet';
+      el.textContent = `Google Sheet backup: ON - ${last}` + (c.pending ? ` - ${c.pending} change(s) waiting` : ' - all saved')
+        + (c.lastError ? ` - last error: ${c.lastError}` : '');
+      if (c.lastError) el.style.color = '#b91c1c';
+    }
+
+    async function loadPlayers() {
+      try {
+        const data = await api('/admin/api/players');
+        players = data.players;
+        games = data.games;
+        renderCloud(data.cloud);
+        if ($('playersMsg').textContent === OFFLINE) showMsg($('playersMsg'), '', true);
+      } catch (e) {
+        if (e.message === OFFLINE) { players = localPlayers(); renderCloud(null); }
+        showMsg($('playersMsg'), e.message, false);
+      }
+      renderPlayers();
+      renderLocal();
+    }
+
+    /* ---- this device: the game's own saved records (browser storage, same site) ---- */
+    const LOCAL_KEY = 'convergeit-records-2026';
+    function readLocal() {
+      try { const d = JSON.parse(localStorage.getItem(LOCAL_KEY)); if (d && d.players) return d; } catch (e) { /* ignore */ }
+      return { players: {}, pending: [] };
+    }
+    const normalize = p => ({
+      id: p.id, name: p.name, created: p.created, updated: p.updated || p.created, best: p.best || {},
+      badges: Array.isArray(p.badges) ? p.badges : Object.keys(p.badges || {}).filter(g => p.badges[g]),
+      bonus: !!p.bonus, prizes: (p.prizes || []).map(x => ({ prize: x.prize, at: x.at, claimed: !!x.claimed })),
+    });
+    const localPlayers = () => Object.values(readLocal().players).map(normalize).sort((a, b) => b.created - a.created);
+
+    function renderLocal() {
+      const d = readLocal();
+      $('nLocal').textContent = Object.keys(d.players).length;
+      $('nPending').textContent = (d.pending || []).length;
+    }
+
+    function download(name, text, type) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type }));
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+
+    function toCsv(list) {
+      const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+      const lines = [['Name', ...games.map(g => GAME_NAMES[g] || g), 'Total', 'Badges', 'Followed TechIS', 'Prizes', 'Unclaimed prizes', 'First played', 'Last played']];
+      for (const p of list) {
+        lines.push([p.name, ...games.map(g => p.best[g] || 0), total(p), p.badges.length, p.bonus ? 'YES' : 'NO',
+          p.prizes.map(x => x.prize).join(' + '), p.prizes.filter(x => !x.claimed).map(x => x.prize).join(' + '),
+          new Date(p.created).toLocaleString(), new Date(p.updated || p.created).toLocaleString()]);
+      }
+      return '\ufeff' + lines.map(l => l.map(esc).join(',')).join('\r\n');
+    }
+
+    async function syncNow() {
+      const d = readLocal();
+      let sent = 0, failed = 0;
+      for (const id of [...(d.pending || [])]) {
+        const p = d.players[id];
+        try {
+          const res = p ? await fetch(location.origin + '/api/record', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }) : null;
+          if (!p || res.ok || res.status === 400) {
+            const now = readLocal();
+            now.pending = (now.pending || []).filter(x => x !== id);
+            localStorage.setItem(LOCAL_KEY, JSON.stringify(now));
+            if (p && res.ok) sent++;
+          } else failed++;
+        } catch (e) { failed++; break; }
+      }
+      renderLocal();
+      if (failed) showMsg($('localMsg'), OFFLINE + ' The records stay saved on this device.', false);
+      else showMsg($('localMsg'), sent ? `Synced ${sent} player(s) to the server.` : 'Everything on this device is already synced.', true);
+      if (sent) loadPlayers();
+    }
+
+    async function claim(p, prize, claimed) {
+      try {
+        await api('/admin/api/claim', { id: p.id, at: prize.at, claimed });
+        prize.claimed = claimed;
+        showMsg($('playersMsg'), `${p.name}: ${prize.prize} marked ${claimed ? 'CLAIMED' : 'NOT CLAIMED'}.`, true);
+      } catch (e) { showMsg($('playersMsg'), e.message, false); }
+      renderPlayers();
+    }
+
+    $('search').addEventListener('input', renderPlayers);
+    $('winnersOnly').addEventListener('change', renderPlayers);
+    $('refreshPlayers').addEventListener('click', loadPlayers);
+    $('csv').addEventListener('click', () => download(`techis-players-${stamp()}.csv`, toCsv(players), 'text/csv'));
+    $('json').addEventListener('click', () => download(`techis-players-${stamp()}.json`,
+      JSON.stringify({ exported: new Date().toISOString(), players }, null, 1), 'application/json'));
+    $('syncNow').addEventListener('click', syncNow);
+    $('localCsv').addEventListener('click', () => download(`techis-device-players-${stamp()}.csv`, toCsv(localPlayers()), 'text/csv'));
+    $('localJson').addEventListener('click', () => download(`techis-device-players-${stamp()}.json`,
+      JSON.stringify({ exported: new Date().toISOString(), device: navigator.userAgent, players: localPlayers() }, null, 1), 'application/json'));
+    $('importBtn').addEventListener('click', () => $('importFile').click());
+    $('importFile').addEventListener('change', async () => {
+      const file = $('importFile').files[0];
+      $('importFile').value = '';
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        const res = await api('/admin/api/import', { players: data.players || data });
+        showMsg($('localMsg'), `Imported: ${res.merged} player(s) merged into the server records.`, true);
+        loadPlayers();
+      } catch (e) { showMsg($('localMsg'), e instanceof SyntaxError ? 'That file is not valid JSON.' : e.message, false); }
+    });
+    loadPlayers();
+    setInterval(() => { if (!document.hidden && !document.activeElement.matches('#players input')) loadPlayers(); }, 15000);
+  </script>
+</body>
+</html>
