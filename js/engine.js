@@ -38,6 +38,7 @@ const KEYMAP = {
   Space: 'action', Enter: 'action', KeyZ: 'action',
   Escape: 'back', KeyP: 'back', KeyM: 'mute', KeyF: 'fullscreen', KeyC: 'wheel',
   Tab: 'skip', KeyQ: 'qr',
+  Minus: 'voldown', NumpadSubtract: 'voldown', Equal: 'volup', NumpadAdd: 'volup',
 };
 
 const Input = {
@@ -182,6 +183,29 @@ const TRACKS = {
 
 const Music = {
   track: null, step: 0, next: 0,
+  boost: 2, // background music loudness (1 = original); sound effects and Tekis's voice are not affected
+  MAX: 4, shown: 0,
+  load() {
+    try {
+      const v = parseFloat(localStorage.getItem('purr-music-volume'));
+      if (v >= 0 && v <= this.MAX) this.boost = v;
+    } catch (e) { /* storage unavailable: keep the default */ }
+  },
+  /* -/+ keys: 9 levels from silent to twice the default, remembered on this device. */
+  change(d) {
+    this.boost = clamp(this.boost + d, 0, this.MAX);
+    try { localStorage.setItem('purr-music-volume', this.boost); } catch (e) { /* ignore */ }
+    this.shown = 1.5;
+  },
+  drawLevel(dt) {
+    if (this.shown <= 0) return;
+    this.shown -= dt;
+    const n = Math.round(this.boost * 2), x = W / 2 - 54, y = 14;
+    rect(x - 1, y - 1, 110, 19, PAL.yellow);
+    rect(x, y, 108, 17, '#020617');
+    drawText('MUSIC', x + 6, y + 5, Sound.muted ? '#64748b' : PAL.yellow);
+    for (let i = 0; i < 8; i++) rect(x + 40 + i * 8, y + 12 - i, 6, 2 + i, i < n ? PAL.cyan : '#334155');
+  },
   play(name) {
     const tr = TRACKS[name];
     if (this.track === tr) return;
@@ -195,9 +219,9 @@ const Music = {
     if (this.next < now) this.next = now + 0.05;
     while (this.next < now + 0.12) {
       const bar = Math.floor(this.step / 8) % 4, i = this.step % 8;
-      s.toneAt(this.next, midi(tr.chords[bar][tr.arp[i]] + tr.oct), len * 0.8, 'square', tr.vol);
-      if (i % 4 === 0) s.toneAt(this.next, midi(tr.bass[bar]), len * 3.5, 'triangle', 0.09);
-      if (tr.hat && i % 2 === 1) s.noiseAt(this.next, 0.03, 0.02);
+      s.toneAt(this.next, midi(tr.chords[bar][tr.arp[i]] + tr.oct), len * 0.8, 'square', tr.vol * this.boost);
+      if (i % 4 === 0) s.toneAt(this.next, midi(tr.bass[bar]), len * 3.5, 'triangle', Math.min(0.2, 0.09 * this.boost));
+      if (tr.hat && i % 2 === 1) s.noiseAt(this.next, 0.03, 0.02 * this.boost);
       this.step++;
       this.next += len;
     }

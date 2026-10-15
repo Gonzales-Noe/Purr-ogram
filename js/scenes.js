@@ -73,7 +73,7 @@ class TitleScene {
 
     drawText('BATANGAS INFORMATION TECHNOLOGY SOCIETY', W / 2, 158, '#f1f5f9', { align: 'center' });
     drawText('OCT 17, 2026  -  LIPA CITY', W / 2, 168, '#22d3ee', { align: 'center' });
-    drawText('M: MUTE  F: FULLSCREEN', W - 4, 3, '#334155', { align: 'right' });
+    drawText('-/+: MUSIC  M: MUTE  F: FULLSCREEN', W - 4, 3, '#334155', { align: 'right' });
     if (Records.me) drawText(`PLAYER: ${Records.name}`, 4, 3, '#64748b');
 
     if (this.showScores) {
@@ -162,7 +162,7 @@ class NameScene {
       if (!ok) { this.msg = 'NAME TAKEN! TRY ANOTHER ONE'; Sound.play('deny'); return; }
       hub.reset();
       Sound.play('select');
-      Game.go(new SplashScene());
+      Game.go(title);
     });
   }
   draw() {

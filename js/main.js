@@ -36,6 +36,7 @@ document.querySelectorAll('#touch [data-act]').forEach(btn => {
   btn.addEventListener('pointercancel', off);
 });
 
+Music.load();
 Game.go(title);
 
 let last = performance.now();
@@ -45,6 +46,8 @@ function frame(now) {
 
   if (Input.hit('mute')) { Sound.toggle(); if (Sound.muted) Voice.stop(); FX.float(W / 2, H / 2, Sound.muted ? 'SOUND OFF' : 'SOUND ON', PAL.yellow); }
   if (Input.hit('fullscreen')) toggleFullscreen();
+  if (Input.hit('volup')) Music.change(0.5);
+  if (Input.hit('voldown')) Music.change(-0.5);
 
   Game.scene.update(dt);
   Install.update(Game.scene === title);
@@ -57,6 +60,7 @@ function frame(now) {
   Game.scene.draw();
   FX.draw();
   ctx.restore();
+  Music.drawLevel(dt);
 
   Input.endFrame();
   requestAnimationFrame(frame);
