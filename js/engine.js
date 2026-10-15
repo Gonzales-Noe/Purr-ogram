@@ -90,8 +90,12 @@ window.addEventListener('pointerup', () => { Input.mouse.down = false; });
 window.addEventListener('pointercancel', () => { Input.mouse.down = false; });
 
 function toggleFullscreen() {
-  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
-  else document.exitFullscreen?.();
+  const el = document.documentElement;
+  if (!(document.fullscreenElement || document.webkitFullscreenElement)) {
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } else if (document.exitFullscreen) document.exitFullscreen();
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
 }
 
 /* ---------- audio (synthesized chiptune, no files needed) ---------- */
@@ -110,7 +114,9 @@ const Sound = {
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (this.ac.state === 'suspended') this.ac.resume();
+    // iPad/iPhone: keep playing with the silent switch on, and wake up after the app was in the background.
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    if (this.ac.state !== 'running') this.ac.resume().catch(() => {});
   },
   toggle() {
     this.muted = !this.muted;

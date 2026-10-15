@@ -6,7 +6,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) naviga
 title = new TitleScene();
 hub = new HubScene();
 
-if (window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+if (matchMedia('(any-pointer: coarse)').matches || navigator.maxTouchPoints > 1) document.body.classList.add('touch');
+// iPad Safari ignores user-scalable=no; block pinch and double-tap zoom so taps stay on the game.
+['gesturestart', 'dblclick'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
 document.querySelectorAll('#touch [data-act]').forEach(btn => {
   const act = btn.dataset.act;
   const on = e => { e.preventDefault(); Sound.init(); Input.press(act); };

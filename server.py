@@ -64,6 +64,7 @@ ENV_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 DEFAULT_PIN = os.environ.get('STAFF_PIN', '2026')
 SHEETS_URL = os.environ.get('SHEETS_URL', '').strip()
 SHEETS_KEY = os.environ.get('SHEETS_KEY', '').strip()
+PULL_EVERY = 60  # seconds between Sheet reads, so the laptop and the iPad see each other's players
 BEHIND_PROXY = bool(os.environ.get('RENDER') or os.environ.get('BEHIND_PROXY'))
 
 DEFAULT_PRIZES = [
@@ -281,14 +282,16 @@ class Cloud:
         return True
 
     @classmethod
-    def pull(cls):
-        """Loads players and prize settings saved in the Sheet into the local data files."""
+    def pull(cls, startup=False):
+        """Merges players and prize settings saved in the Sheet into the local data files, so another
+        device (booth laptop, iPad on Render) sees the same records. Merging only ever adds."""
         try:
             data = cls.call()
         except (OSError, ValueError) as e:
             cls.last_error = f'{type(e).__name__}: {e}'[:200]
-            print(f'  Google Sheet: could not load records ({cls.last_error}). Will keep retrying pushes.')
-            return
+            if startup:
+                print(f'  Google Sheet: could not load records ({cls.last_error}). Will keep retrying.')
+            return False
         with lock:
             players = load_players()
             local_ids = set(players)
@@ -296,26 +299,35 @@ class Cloud:
                 if isinstance(record, dict):
                     merge_player(players, record, from_cloud=True)
             save_players(players)
-            cls.dirty_players.update(local_ids)  # local-only changes go back up to the Sheet
-            settings = data.get('settings') or {}
-            prizes, error = clean_prizes(settings.get('prizes'))
-            wheel = load()
-            if not error:
-                wheel['prizes'] = prizes
-            if PIN_RE.match(str(settings.get('staffPin', ''))):
-                wheel['staffPin'] = str(settings['staffPin'])
-            save(wheel)
+            if startup:
+                cls.dirty_players.update(local_ids)  # local-only changes go back up to the Sheet
+            if not cls.dirty_settings:
+                settings = data.get('settings') or {}
+                prizes, error = clean_prizes(settings.get('prizes'))
+                wheel = load()
+                if not error:
+                    wheel['prizes'] = prizes
+                if PIN_RE.match(str(settings.get('staffPin', ''))):
+                    wheel['staffPin'] = str(settings['staffPin'])
+                save(wheel)
         cls.last_ok = now_ms()
-        print(f'  Google Sheet: loaded {len(data.get("players") or [])} players.')
+        if startup:
+            print(f'  Google Sheet: loaded {len(data.get("players") or [])} players.')
+        return True
 
     @classmethod
     def run(cls):
-        cls.pull()
+        pulled = cls.pull(startup=True)
+        last_pull = time.monotonic()
         delay = 5
         while True:
             cls.wake.wait(delay)
             cls.wake.clear()
-            delay = 5 if cls.push() else min(delay * 2, 120)
+            ok = cls.push()
+            if ok and (time.monotonic() - last_pull >= PULL_EVERY or not pulled):
+                pulled = cls.pull(startup=not pulled)
+                last_pull = time.monotonic()
+            delay = 5 if ok else min(delay * 2, 120)
 
     @classmethod
     def status(cls):

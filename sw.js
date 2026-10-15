@@ -4,7 +4,7 @@
    Network first, so updates show up immediately when online; cached copy when offline. */
 importScripts('/js/voice-manifest.js');
 
-const CACHE = 'convergeit-quest-v4';
+const CACHE = 'convergeit-quest-v5';
 const CORE = [
   '/', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png',
   '/icons/maskable-512.png', '/icons/apple-touch-icon.png', '/css/style.css', '/js/config.js', '/js/engine.js', '/js/records.js', '/js/font.js', '/js/sprites.js',

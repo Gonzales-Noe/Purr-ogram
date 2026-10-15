@@ -23,19 +23,44 @@ function voiceKey(text) {
   return h.toString(16).padStart(8, '0');
 }
 
-/* Plays Tekis's pre-recorded robo-cat voice clips from audio/voice/. Lines without a clip stay silent. */
+/* Plays Tekis's pre-recorded robo-cat voice clips from audio/voice/. Lines without a clip stay silent.
+   Clips go through the Web Audio context (unlocked by the first tap/key), because iPad/iPhone Safari
+   blocks new Audio() elements that are not started directly inside a tap. */
 const Voice = {
-  audio: null,
-  get speaking() { return !!this.audio && !this.audio.paused && !this.audio.ended; },
+  src: null, playing: false, token: 0, buffers: new Map(),
+  get speaking() { return this.playing; },
+  load(key) {
+    if (this.buffers.has(key)) return this.buffers.get(key);
+    const ac = Sound.ac;
+    const p = fetch(`audio/voice/${key}.mp3`)
+      .then(r => (r.ok ? r.arrayBuffer() : null))
+      .then(data => data && new Promise(done => ac.decodeAudioData(data, done, () => done(null))))
+      .catch(() => null);
+    this.buffers.set(key, p);
+    if (this.buffers.size > 8) this.buffers.delete(this.buffers.keys().next().value);
+    return p;
+  },
   say(text) {
     this.stop();
-    if (Sound.muted || !text) return;
+    if (Sound.muted || !text || !Sound.ac) return;
     const key = voiceKey(text);
     if (typeof VOICE_CLIPS === 'undefined' || !VOICE_CLIPS.has(key)) return;
-    this.audio = new Audio(`audio/voice/${key}.mp3`);
-    this.audio.play().catch(() => {});
+    const token = this.token;
+    this.playing = true;
+    this.load(key).then(buf => {
+      if (token !== this.token) return;
+      if (!buf || Sound.muted) { this.playing = false; return; }
+      const src = Sound.ac.createBufferSource();
+      src.buffer = buf;
+      src.connect(Sound.ac.destination);
+      src.onended = () => { if (this.src === src) { this.src = null; this.playing = false; } };
+      this.src = src;
+      src.start();
+    });
   },
   stop() {
-    if (this.audio) { this.audio.pause(); this.audio = null; }
+    this.token++;
+    this.playing = false;
+    if (this.src) { try { this.src.stop(); } catch (e) { /* already stopped */ } this.src = null; }
   },
 };
