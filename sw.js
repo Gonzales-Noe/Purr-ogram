@@ -2,12 +2,16 @@
 
 /* Lets the game open without internet after one online visit (/admin always needs the server).
    Network first, so updates show up immediately when online; cached copy when offline. */
-const CACHE = 'convergeit-quest-v2';
+importScripts('/js/voice-manifest.js');
+
+const CACHE = 'convergeit-quest-v3';
 const CORE = [
-  '/', '/css/style.css', '/js/config.js', '/js/engine.js', '/js/records.js', '/js/font.js', '/js/sprites.js',
+  '/', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png',
+  '/icons/maskable-512.png', '/icons/apple-touch-icon.png', '/css/style.css', '/js/config.js', '/js/engine.js', '/js/records.js', '/js/font.js', '/js/sprites.js',
   '/js/qr.js', '/js/voice-manifest.js', '/js/voice.js', '/js/tekis.js', '/js/games/ai-guardian.js',
   '/js/games/firewall-defender.js', '/js/games/edge-snake.js', '/js/games/green-datacenter.js',
   '/js/games/skill-runner.js', '/js/scenes.js', '/js/main.js',
+  ...[...VOICE_CLIPS].map(id => '/audio/voice/' + id + '.mp3'),
 ];
 
 self.addEventListener('install', e => {

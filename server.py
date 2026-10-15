@@ -324,6 +324,9 @@ class Cloud:
 
 
 class Handler(SimpleHTTPRequestHandler):
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, '.webmanifest': 'application/manifest+json',
+                      '.js': 'text/javascript', '.svg': 'image/svg+xml'}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
@@ -336,7 +339,8 @@ class Handler(SimpleHTTPRequestHandler):
         return '/' if path in ('.', '') else path
 
     def is_public_file(self, path):
-        return path in ('/', '/index.html', '/sw.js', '/favicon.svg') or path.startswith(('/css/', '/js/', '/audio/'))
+        return (path in ('/', '/index.html', '/sw.js', '/favicon.svg', '/manifest.webmanifest')
+                or path.startswith(('/css/', '/js/', '/audio/', '/icons/')))
 
     def client_ip(self):
         if BEHIND_PROXY and self.headers.get('X-Forwarded-For'):
