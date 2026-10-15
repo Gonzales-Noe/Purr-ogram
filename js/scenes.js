@@ -211,11 +211,11 @@ class SplashScene {
     if (since > 0 && since < 1.2) {
       ctx.globalAlpha = 1 - since / 1.2;
       ctx.strokeStyle = PAL.sky; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(W / 2, 62, 20 + since * 230, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W / 2, 42, 20 + since * 230, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
 
-    const cw = 24, left = W / 2 - (SPLASH_WORD.length * cw - 4) / 2, cy = 62;
+    const cw = 24, left = W / 2 - (SPLASH_WORD.length * cw - 4) / 2, cy = 42;
     const pulse = since > 0 && since < 0.4 ? 1 + Math.sin(since / 0.4 * Math.PI) * 0.14 : 1;
     [...SPLASH_WORD].forEach((ch, i) => {
       const p = clamp((t - 0.25 - i * 0.07) / 0.35, 0, 1);
@@ -230,13 +230,17 @@ class SplashScene {
 
     if (since > 0.25) {
       ctx.globalAlpha = clamp((since - 0.25) / 0.3, 0, 1);
-      drawText('THE CONVERGEIT QUEST', W / 2, 90, PAL.yellow, { align: 'center', shadow: '#78350f' });
-      if (Records.name) drawText(`WELCOME, ${Records.name}!`, W / 2, 104, PAL.cyan, { align: 'center' });
+      drawText('THE CONVERGEIT QUEST', W / 2, 66, PAL.yellow, { align: 'center', shadow: '#78350f', scale: 2 });
+      drawText('DEVELOPED BY', W / 2, 90, '#94a3b8', { align: 'center' });
+      const ox = Math.round(W / 2 - (textWidth(ORG.name) + 15) / 2);
+      ctx.drawImage(LOGO_MINI, ox, 100);
+      drawText(ORG.name, ox + 15, 102, PAL.white, { shadow: '#1e3a8a' });
+      if (Records.name) drawText(`WELCOME, ${Records.name}!`, W / 2, 120, PAL.cyan, { align: 'center' });
       ctx.globalAlpha = 1;
     }
     if (since > 0.35) {
       const rise = clamp((since - 0.35) / 0.35, 0, 1);
-      drawTekis(W / 2 - 18, Math.round(H - easeOutBack(rise) * 52), t, { talking: Voice.speaking, mood: 'excited' });
+      drawTekis(W / 2 - 18, Math.round(H - easeOutBack(rise) * 46), t, { talking: Voice.speaking, mood: 'excited' });
     }
     if (since > 1 && Math.floor(t * 2) % 2) drawText('SPACE: CONTINUE', W - 8, 168, '#64748b', { align: 'right' });
   }
