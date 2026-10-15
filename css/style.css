@@ -53,6 +53,74 @@ body.touch #touch {
   border-radius: 50%;
 }
 
+#install {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 7px;
+  border: 2px solid #f472b6;
+  border-radius: 12px;
+  background: #0b1736;
+  color: #ffffff;
+  font: bold 14px/1 "Consolas", "Courier New", monospace;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #db2777, 0 0 18px rgba(244, 114, 182, 0.35);
+  animation: install-pop 0.35s ease-out;
+}
+
+#install:hover { background: #13245a; }
+#install:active { transform: translateY(2px); box-shadow: 0 1px 0 #db2777; }
+#install img { width: 24px; height: 24px; border-radius: 6px; image-rendering: pixelated; }
+#install[hidden], #install-help[hidden] { display: none; }
+
+@keyframes install-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+#install-help {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 6, 15, 0.8);
+}
+
+#install-help .card {
+  max-width: 320px;
+  margin: 16px;
+  padding: 22px 22px 18px;
+  border: 2px solid #f472b6;
+  border-radius: 16px;
+  background: #0b1736;
+  color: #e2e8f0;
+  text-align: center;
+  font: 15px/1.5 "Consolas", "Courier New", monospace;
+}
+
+#install-help img { width: 64px; height: 64px; border-radius: 14px; image-rendering: pixelated; }
+#install-help h2 { margin: 10px 0 6px; color: #fdd068; font-size: 18px; letter-spacing: 1px; }
+#install-help b { color: #f9a8d4; }
+#install-help .ico { display: inline-block; padding: 0 4px; border: 1px solid #94a3b8; border-radius: 4px; }
+
+#install-help button {
+  margin-top: 14px;
+  padding: 9px 22px;
+  border: 0;
+  border-radius: 10px;
+  background: #f472b6;
+  color: #0b1736;
+  font: bold 14px "Consolas", "Courier New", monospace;
+  cursor: pointer;
+}
+
 #touch .pause {
   right: 24px;
   top: 20px;

@@ -28,6 +28,7 @@ function frame(now) {
   if (Input.hit('fullscreen')) toggleFullscreen();
 
   Game.scene.update(dt);
+  Install.update(Game.scene === title);
   if (!Game.paused) FX.update(dt);
   Music.update();
 
