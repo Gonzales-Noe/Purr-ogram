@@ -336,7 +336,7 @@ class Handler(SimpleHTTPRequestHandler):
         return '/' if path in ('.', '') else path
 
     def is_public_file(self, path):
-        return path in ('/', '/index.html', '/sw.js') or path.startswith(('/css/', '/js/', '/audio/'))
+        return path in ('/', '/index.html', '/sw.js', '/favicon.svg') or path.startswith(('/css/', '/js/', '/audio/'))
 
     def client_ip(self):
         if BEHIND_PROXY and self.headers.get('X-Forwarded-For'):
