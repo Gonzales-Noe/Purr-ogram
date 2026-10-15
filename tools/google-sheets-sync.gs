@@ -15,8 +15,8 @@
  *
  * The "Players" tab gets one row per player (name, best score per game, prizes, claimed or not).
  * The last column holds the full record the server reloads on restart - do not edit that column.
- * The first tab becomes "Leaderboard": a styled public board (logo, ranks, scores per game, prizes) that
- * rebuilds itself after every sync. To rebuild it by hand: PURR-OGRAM menu > Refresh leaderboard.
+ * The first tab becomes "Leaderboard": a styled public board (logo, then one ranked table per date played,
+ * newest date first) that rebuilds itself after every sync. To rebuild it by hand: PURR-OGRAM menu > Refresh leaderboard.
  * If you change this script later: Deploy > Manage deployments > Edit > Version: New version.
  */
 const SECRET_KEY = 'CHANGE-ME-to-a-long-secret';
@@ -111,7 +111,8 @@ function writeSettings(settings) {
 
 const BOARD = 'Leaderboard';
 const BOARD_MAX = 100;
-const BOARD_TOP = 9; // first player row
+const BOARD_TOP = 9; // first row below the stat cards + spacer
+const TZ = 'Asia/Manila';
 const BOARD_COLS = 11;
 const NAVY = '#0b1736', INK = '#1e293b', MUTED = '#64748b', LINE = '#e2e8f0';
 const BOARD_GAMES = [
@@ -145,20 +146,23 @@ function buildBoard() {
   const sh = boardSheet();
   const all = readPlayers().map(p => {
     const best = p.best || {}, prizes = p.prizes || [];
-    return { p, best, prizes, total: GAMES.reduce((s, g) => s + (best[g] || 0), 0), badges: (p.badges || []).length };
+    const day = Utilities.formatDate(new Date(p.created || p.updated || Date.now()), TZ, 'yyyy-MM-dd');
+    return { p, best, prizes, day, total: GAMES.reduce((s, g) => s + (best[g] || 0), 0), badges: (p.badges || []).length };
   });
   all.sort((a, b) => b.total - a.total || b.badges - a.badges || (a.p.created || 0) - (b.p.created || 0));
-  const list = all.slice(0, BOARD_MAX);
-  const rows = Math.max(list.length, 1);
+  const days = [...new Set(all.map(x => x.day))].sort().reverse()
+    .map(day => ({ day, list: all.filter(x => x.day === day).slice(0, BOARD_MAX) }));
+  // Each date: banner row + header row + player rows + spacer row.
+  const rows = BOARD_TOP - 2 + (days.length ? days.reduce((s, d) => s + d.list.length + 3, 0) : 1);
 
   sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart();
   sh.clear();
-  fitSheet(sh, BOARD_TOP + rows, BOARD_COLS);
+  fitSheet(sh, rows, BOARD_COLS);
   sh.setHiddenGridlines(true);
-  sh.getRange(1, 1, BOARD_TOP + rows, BOARD_COLS).setFontFamily('Montserrat').setVerticalAlignment('middle');
+  sh.getRange(1, 1, rows, BOARD_COLS).setFontFamily('Montserrat').setVerticalAlignment('middle');
 
   [80, 170, 104, 104, 104, 104, 104, 96, 112, 220, 126].forEach((w, i) => sh.setColumnWidth(i + 1, w));
-  [44, 24, 24, 6, 20, 36, 12, 42].forEach((h, i) => sh.setRowHeight(i + 1, h));
+  [44, 24, 24, 6, 20, 36, 14].forEach((h, i) => sh.setRowHeight(i + 1, h));
 
   // Header band with logo, game title, full org name and event.
   sh.getRange(1, 1, 3, BOARD_COLS).setBackground(NAVY);
@@ -167,7 +171,7 @@ function buildBoard() {
   sh.getRange('B2:K2').merge().setValue('TECH INNOVATORS SOCIETY (TechIS)')
     .setFontSize(12).setFontWeight('bold').setFontColor('#22d3ee');
   sh.getRange('B3:K3').merge()
-    .setValue('Batangas State University – The National Engineering University, Lipa Campus   ·   ConvergeIT 2026  ·  October 17, 2026  ·  Lipa City')
+    .setValue('Batangas State University – The National Engineering University, Lipa Campus   ·   ConvergeIT Conference 2026  ·  October 17, 2026  ·  Lipa City')
     .setFontSize(9).setFontColor('#cbd5e1');
   const stripe = ['#f2476f', '#1289b5', '#06d6a0', '#ffd166'];
   sh.getRange(4, 1, 1, BOARD_COLS).setBackgrounds([Array.from({ length: BOARD_COLS }, (_, i) => stripe[i % 4])]);
@@ -175,16 +179,17 @@ function buildBoard() {
     const img = sh.insertImage(Utilities.newBlob(Utilities.base64Decode(LOGO_PNG), 'image/png', 'techis.png'), 1, 1, 12, 8);
     img.setHeight(76).setWidth(68);
   }
+  sh.setFrozenRows(4);
 
-  // Stat cards.
+  // Stat cards (all dates together).
   const winners = all.filter(x => x.prizes.length).length;
   const unclaimed = all.reduce((s, x) => s + x.prizes.filter(z => !z.claimed).length, 0);
   const cards = [
-    ['A5:B5', 'A6:B6', 'PLAYERS', all.length],
+    ['A5:B5', 'A6:B6', 'PLAYERS (ALL DATES)', all.length],
     ['C5:E5', 'C6:E6', 'COMPLETED ALL 5 BADGES', all.filter(x => x.badges >= GAMES.length).length],
     ['F5:H5', 'F6:H6', 'PRIZE WINNERS', winners],
     ['I5:J5', 'I6:J6', 'PRIZES TO CLAIM', unclaimed],
-    ['K5', 'K6', 'UPDATED', Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a')],
+    ['K5', 'K6', 'UPDATED', Utilities.formatDate(new Date(), TZ, 'MMM d, h:mm a')],
   ];
   cards.forEach(([lab, val, label, value]) => {
     sh.getRange(lab).merge().setValue(label).setBackground('#eef2ff').setFontColor(MUTED)
@@ -195,24 +200,38 @@ function buildBoard() {
       .setBorder(true, true, true, true, null, null, '#ffffff', SpreadsheetApp.BorderStyle.SOLID_THICK);
   });
 
-  // Table header.
-  const head = sh.getRange(BOARD_TOP - 1, 1, 1, BOARD_COLS);
-  head.setValues([['RANK', 'PLAYER', ...BOARD_GAMES.map(g => g[0]), 'TOTAL', 'BADGES', 'PRIZES WON', 'PRIZE STATUS']])
-    .setBackground(NAVY).setFontColor('#ffffff').setFontSize(9).setFontWeight('bold')
-    .setHorizontalAlignment('center').setWrap(true);
-  BOARD_GAMES.forEach((g, i) => sh.getRange(BOARD_TOP - 1, 3 + i).setBackground(g[1]));
-  sh.getRange(BOARD_TOP - 1, 2).setHorizontalAlignment('left');
-  sh.getRange(BOARD_TOP - 1, 10).setHorizontalAlignment('left');
-  sh.setFrozenRows(BOARD_TOP - 1);
-
-  const body = sh.getRange(BOARD_TOP, 1, rows, BOARD_COLS);
-  sh.setRowHeights(BOARD_TOP, rows, 30);
-  if (!list.length) {
-    sh.getRange(BOARD_TOP, 1, 1, BOARD_COLS).merge().setValue('No players yet - come play PURR-OGRAM at the TechIS booth!')
+  if (!days.length) {
+    sh.getRange(BOARD_TOP - 1, 1, 1, BOARD_COLS).merge().setValue('No players yet - come play PURR-OGRAM at the TechIS booth!')
       .setHorizontalAlignment('center').setFontColor(MUTED).setFontStyle('italic');
     return;
   }
+  let row = BOARD_TOP - 1;
+  days.forEach(d => { row = drawDay(sh, row, d.day, d.list); });
+}
 
+// One date's table: date banner, column headers, ranked players. Returns the next free row.
+function drawDay(sh, row, day, list) {
+  const date = Utilities.parseDate(day, TZ, 'yyyy-MM-dd');
+  const won = list.filter(x => x.prizes.length).length;
+  sh.setRowHeight(row, 32);
+  sh.getRange(row, 1, 1, 8).merge()
+    .setValue('📅  ' + Utilities.formatDate(date, TZ, 'EEEE, MMMM d, yyyy').toUpperCase())
+    .setFontSize(12).setFontWeight('bold').setFontColor('#ffffff').setBackground('#1289b5');
+  sh.getRange(row, 9, 1, 3).merge()
+    .setValue(list.length + (list.length === 1 ? ' PLAYER' : ' PLAYERS') + '  ·  ' + won + (won === 1 ? ' WINNER' : ' WINNERS'))
+    .setFontSize(9).setFontWeight('bold').setFontColor('#e0f2fe').setBackground('#1289b5').setHorizontalAlignment('right');
+
+  const headRow = row + 1;
+  sh.setRowHeight(headRow, 42);
+  sh.getRange(headRow, 1, 1, BOARD_COLS)
+    .setValues([['RANK', 'PLAYER', ...BOARD_GAMES.map(g => g[0]), 'TOTAL', 'BADGES', 'PRIZES WON', 'PRIZE STATUS']])
+    .setBackground(NAVY).setFontColor('#ffffff').setFontSize(9).setFontWeight('bold')
+    .setHorizontalAlignment('center').setWrap(true);
+  BOARD_GAMES.forEach((g, i) => sh.getRange(headRow, 3 + i).setBackground(g[1]));
+  sh.getRange(headRow, 2).setHorizontalAlignment('left');
+  sh.getRange(headRow, 10).setHorizontalAlignment('left');
+
+  const top = headRow + 1, n = list.length;
   const values = [], bgs = [], colors = [];
   list.forEach((x, i) => {
     const medal = MEDALS[i];
@@ -223,22 +242,24 @@ function buildBoard() {
       '★'.repeat(x.badges) + '☆'.repeat(Math.max(0, GAMES.length - x.badges)),
       x.prizes.map(z => z.prize).join(', '), status,
     ]);
-    const bg = medal ? medal[1] : i % 2 ? '#f8fafc' : '#ffffff';
-    bgs.push(Array(BOARD_COLS).fill(bg));
+    bgs.push(Array(BOARD_COLS).fill(medal ? medal[1] : i % 2 ? '#f8fafc' : '#ffffff'));
     const c = Array(BOARD_COLS).fill(INK);
     c[8] = x.badges >= GAMES.length ? '#d4a106' : '#94a3b8';
     c[10] = open ? '#ea580c' : '#059669';
     colors.push(c);
   });
-  body.setValues(values).setBackgrounds(bgs).setFontColors(colors).setFontSize(10)
+  sh.setRowHeights(top, n, 30);
+  sh.getRange(top, 1, n, BOARD_COLS).setValues(values).setBackgrounds(bgs).setFontColors(colors).setFontSize(10)
     .setBorder(null, null, true, null, null, true, LINE, SpreadsheetApp.BorderStyle.SOLID);
-  sh.getRange(BOARD_TOP, 1, rows, 1).setHorizontalAlignment('center').setFontWeight('bold');
-  sh.getRange(BOARD_TOP, 2, rows, 1).setFontWeight('bold');
-  sh.getRange(BOARD_TOP, 3, rows, 6).setHorizontalAlignment('center').setNumberFormat('#,##0;-#,##0;"–"');
-  sh.getRange(BOARD_TOP, 8, rows, 1).setFontWeight('bold').setFontColor(NAVY).setFontSize(11);
-  sh.getRange(BOARD_TOP, 9, rows, 1).setHorizontalAlignment('center').setFontSize(12);
-  sh.getRange(BOARD_TOP, 10, rows, 1).setWrap(true).setFontSize(9);
-  sh.getRange(BOARD_TOP, 11, rows, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontSize(9);
+  sh.getRange(top, 1, n, 1).setHorizontalAlignment('center').setFontWeight('bold');
+  sh.getRange(top, 2, n, 1).setFontWeight('bold');
+  sh.getRange(top, 3, n, 6).setHorizontalAlignment('center').setNumberFormat('#,##0;-#,##0;"–"');
+  sh.getRange(top, 8, n, 1).setFontWeight('bold').setFontColor(NAVY).setFontSize(11);
+  sh.getRange(top, 9, n, 1).setHorizontalAlignment('center').setFontSize(12);
+  sh.getRange(top, 10, n, 1).setWrap(true).setFontSize(9);
+  sh.getRange(top, 11, n, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontSize(9);
+  sh.setRowHeight(top + n, 22);
+  return top + n + 1;
 }
 
 // TechIS logo (PNG, base64) for the leaderboard header.
