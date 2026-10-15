@@ -183,13 +183,21 @@ def merge_player(players, body, from_cloud=False):
         if not isinstance(item, dict):
             continue
         at = to_int(item.get('at'))
+        # Claim status: the newest change wins (claimedAt), whether it came from /admin or the Sheet.
+        claimed_at = (to_int(item.get('claimedAt')) or 0) if from_cloud else 0
         if at in known:
-            if from_cloud and item.get('claimed') is True:
-                known[at]['claimed'] = True
+            mine = known[at]
+            if from_cloud and (claimed_at > mine.get('claimedAt', 0)
+                               or (not claimed_at and not mine.get('claimedAt') and item.get('claimed') is True)):
+                mine['claimed'] = item.get('claimed') is True
+                if claimed_at:
+                    mine['claimedAt'] = claimed_at
             continue
         label = NOT_DRAWABLE.sub('', str(item.get('prize', '')).upper()).strip()[:MAX_LABEL]
         if at and label and len(player['prizes']) < MAX_PLAYER_PRIZES:
             known[at] = {'prize': label, 'at': at, 'claimed': from_cloud and item.get('claimed') is True}
+            if claimed_at:
+                known[at]['claimedAt'] = claimed_at
             player['prizes'].append(known[at])
     updated = to_int(body.get('updated')) if from_cloud else None
     player['updated'] = max(player.get('updated', 0), updated or now)
@@ -528,7 +536,7 @@ class Handler(SimpleHTTPRequestHandler):
             if prize is None:
                 return self.send_json({'error': 'Prize not found.'}, HTTPStatus.NOT_FOUND)
             prize['claimed'] = body.get('claimed') is True
-            player['updated'] = now_ms()
+            prize['claimedAt'] = player['updated'] = now_ms()
             save_players(players)
         Cloud.mark(player['id'])
         self.send_json({'ok': True, 'claimed': prize['claimed']})

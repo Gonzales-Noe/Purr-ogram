@@ -17,6 +17,8 @@
  * The last column holds the full record the server reloads on restart - do not edit that column.
  * The first tab becomes "Leaderboard": a styled public board (logo, then one ranked table per date played,
  * newest date first) that rebuilds itself after every sync. To rebuild it by hand: PURR-OGRAM menu > Refresh leaderboard.
+ * To mark prizes claimed in the Sheet: on the Leaderboard, set PRIZE STATUS to CLAIMED (or TO CLAIM) with the dropdown.
+ * The other columns are display only - they are redrawn from the game data on every sync.
  * If you change this script later: Deploy > Manage deployments > Edit > Version: New version.
  */
 const SECRET_KEY = 'CHANGE-ME-to-a-long-secret';
@@ -75,16 +77,31 @@ function toRow(p) {
   ];
 }
 
+// Keeps the newest claim change per prize (claimedAt), so a claim set in the Sheet is not undone by a server push.
+function keepNewerClaims(incoming, saved) {
+  const old = {};
+  (saved && saved.prizes || []).forEach(x => { old[x.at] = x; });
+  (incoming.prizes || []).forEach(x => {
+    const o = old[x.at];
+    if (o && (o.claimedAt || 0) > (x.claimedAt || 0)) { x.claimed = !!o.claimed; x.claimedAt = o.claimedAt; }
+  });
+  return incoming;
+}
+
 function upsertPlayers(players) {
   const sh = sheet('Players', HEAD);
   const last = sh.getLastRow();
-  const ids = last > 1 ? sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0])) : [];
+  const rows = last > 1 ? sh.getRange(2, 1, last - 1, HEAD.length).getValues() : [];
+  const ids = rows.map(r => String(r[0]));
   const fresh = [];
   players.forEach(p => {
     if (!p || !p.id) return;
-    const row = toRow(p), i = ids.indexOf(String(p.id));
-    if (i >= 0) sh.getRange(i + 2, 1, 1, row.length).setValues([row]);
-    else { fresh.push(row); ids.push(String(p.id)); }
+    const i = ids.indexOf(String(p.id));
+    if (i >= 0 && rows[i]) {
+      let saved = null;
+      try { saved = JSON.parse(rows[i][HEAD.length - 1]); } catch (err) { /* unreadable: take incoming */ }
+      sh.getRange(i + 2, 1, 1, HEAD.length).setValues([toRow(keepNewerClaims(p, saved))]);
+    } else { fresh.push(toRow(p)); ids.push(String(p.id)); }
   });
   if (fresh.length) sh.getRange(sh.getLastRow() + 1, 1, fresh.length, HEAD.length).setValues(fresh);
 }
@@ -114,6 +131,7 @@ const BOARD_MAX = 100;
 const BOARD_TOP = 9; // first row below the stat cards + spacer
 const TZ = 'Asia/Manila';
 const BOARD_COLS = 11;
+const STATUS_COL = 11, ID_COL = 12; // ID_COL is hidden; it tells onEdit which player a row is
 const NAVY = '#0b1736', INK = '#1e293b', MUTED = '#64748b', LINE = '#e2e8f0';
 const BOARD_GAMES = [
   ['AI\nGUARDIAN', '#1289b5'], ['FIREWALL\nDEFENDER', '#f2476f'], ['EDGE\nSNAKE', '#e9a10f'],
@@ -123,6 +141,35 @@ const MEDALS = [['🥇', '#fff6d5'], ['🥈', '#eef2f7'], ['🥉', '#fdebdc']];
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('PURR-OGRAM').addItem('Refresh leaderboard', 'buildBoard').addToUi();
+}
+
+// Editing PRIZE STATUS on the Leaderboard (CLAIMED / TO CLAIM) marks all of that player's prizes.
+// The change is time-stamped, so servers adopt it on their next Sheet read instead of overwriting it.
+function onEdit(e) {
+  const sh = e && e.range.getSheet();
+  if (!sh || sh.getName() !== BOARD || e.range.getColumn() !== STATUS_COL || e.range.getNumRows() !== 1) return;
+  const id = String(sh.getRange(e.range.getRow(), ID_COL).getValue() || '');
+  const value = String(e.value || '').toUpperCase();
+  if (!id || !/^(CLAIMED|TO CLAIM)/.test(value)) return;
+  const claimed = value.indexOf('CLAIMED') === 0;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const players = sheet('Players', HEAD);
+    const last = players.getLastRow();
+    if (last < 2) return;
+    const ids = players.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0]));
+    const i = ids.indexOf(id);
+    if (i < 0) return;
+    const p = JSON.parse(players.getRange(i + 2, HEAD.length).getValue());
+    const now = Date.now();
+    (p.prizes || []).forEach(x => { x.claimed = claimed; x.claimedAt = now; });
+    p.updated = now;
+    players.getRange(i + 2, 1, 1, HEAD.length).setValues([toRow(p)]);
+    buildBoard();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function boardSheet() {
@@ -155,9 +202,10 @@ function buildBoard() {
   // Each date: banner row + header row + player rows + spacer row.
   const rows = BOARD_TOP - 2 + (days.length ? days.reduce((s, d) => s + d.list.length + 3, 0) : 1);
 
-  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart();
+  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart().clearDataValidations();
   sh.clear();
-  fitSheet(sh, rows, BOARD_COLS);
+  fitSheet(sh, rows, BOARD_COLS + 1);
+  sh.hideColumns(ID_COL);
   sh.setHiddenGridlines(true);
   sh.getRange(1, 1, rows, BOARD_COLS).setFontFamily('Montserrat').setVerticalAlignment('middle');
 
@@ -258,6 +306,10 @@ function drawDay(sh, row, day, list) {
   sh.getRange(top, 9, n, 1).setHorizontalAlignment('center').setFontSize(12);
   sh.getRange(top, 10, n, 1).setWrap(true).setFontSize(9);
   sh.getRange(top, 11, n, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontSize(9);
+  sh.getRange(top, ID_COL, n, 1).setValues(list.map(x => [x.p.id]));
+  const pick = SpreadsheetApp.newDataValidation().requireValueInList(['CLAIMED', 'TO CLAIM'], true)
+    .setAllowInvalid(true).setHelpText('Pick CLAIMED when the player has received all prizes.').build();
+  list.forEach((x, i) => { if (x.prizes.length) sh.getRange(top + i, STATUS_COL).setDataValidation(pick); });
   sh.setRowHeight(top + n, 22);
   return top + n + 1;
 }
