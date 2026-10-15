@@ -901,7 +901,7 @@ class WheelScene {
     drawText(main, W / 2, big ? 61 : 65, slice ? slice.color : '#7c3aed', { scale: big ? 2 : 1, align: 'center', shadow: '#3b0d3a' });
     if (others.length) drawText(`+ ${others.join(' + ')}`, W / 2, 80, '#7c3aed', { align: 'center' });
     drawText(`SHOW THIS SCREEN TO A ${ORG.short}`, W / 2, 91, '#374151', { align: 'center' });
-    drawText(`MEMBER TO CLAIM YOUR PRIZE${won.length > 1 ? 'S' : ''}!`, W / 2, 100, '#374151', { align: 'center' });
+    drawText(`OFFICER TO CLAIM YOUR PRIZE${won.length > 1 ? 'S' : ''}!`, W / 2, 100, '#374151', { align: 'center' });
     const cta = spinsLeft() ? 'SPACE: SPIN AGAIN!' : !Save.data.bonus ? `SPACE: FOLLOW ${ORG.short} FOR A BONUS SPIN!` : 'SPACE: BACK TO EXPO HALL';
     if (Math.floor(this.t * 2) % 2 === 0) drawText(cta, W / 2, 115, '#db2777', { align: 'center' });
     if (spinsLeft() || !Save.data.bonus) drawText('ESC: BACK TO EXPO HALL', W / 2, 127, '#6b7280', { align: 'center' });
@@ -918,7 +918,7 @@ class WheelScene {
     drawText(ORG.qrLabel, 56, qy + size + 15, '#7c3aed', { align: 'center' });
 
     drawText('BONUS SPIN! ♥', 108, 30, '#db2777', { scale: 2, shadow: '#fbcfe8' });
-    wrapText(`FOLLOW THE ${ORG.short} PAGE, THEN SHOW A ${ORG.short} MEMBER. THEY WILL TYPE THE STAFF PIN.`, 32)
+    wrapText(`FOLLOW THE ${ORG.short} PAGE, THEN SHOW A ${ORG.short} OFFICER. THEY WILL TYPE THE STAFF PIN.`, 32)
       .forEach((l, k) => drawText(l, 108, 50 + k * 9, '#1f2937'));
 
     const sx = this.pinShake > 0 ? Math.round(Math.sin(this.t * 60) * 2) : 0;

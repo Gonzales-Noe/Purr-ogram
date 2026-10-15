@@ -39,8 +39,8 @@ const VOICE_CLIPS = new Set([
   'e70ad650',  // Here are your prizes!
   'cc05a2ce',  // Go go go!
   'c6e5a600',  // Spin again!
-  '5a8e0505',  // Yay! You won! Show this screen to a TECHIS member!
-  '32e17115',  // Want a bonus spin? Scan my QR code and follow TECHIS, then s
+  'f49c3419',  // Yay! You won! Show this screen to a TECHIS officer!
+  'd218b0b9',  // Want a bonus spin? Scan my QR code and follow TECHIS, then s
   '3caa5cce',  // Yay! Thank you for following! Bonus spin unlocked!
   '0501d322',  // Oops! Wrong pin!
   'bae51a4b',  // Hi hi! What's your name?
