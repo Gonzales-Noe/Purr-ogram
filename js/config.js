@@ -10,6 +10,8 @@ const ORG = {
   // Staff PIN for the follow bonus spin. Only used when the game is opened without server.py;
   // with server.py running, set the PIN at /admin instead.
   staffPin: '2026',
+  // Typing this on the keyboard anywhere in the game opens the admin page (it still asks for the password).
+  adminCode: 'PURRADMIN',
 };
 
 // Default prize wheel (unlocked after all 5 badges). With server.py running, edit prizes at /admin instead.

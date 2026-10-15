@@ -7,6 +7,13 @@ title = new TitleScene();
 hub = new HubScene();
 
 if (matchMedia('(any-pointer: coarse)').matches || navigator.maxTouchPoints > 1) document.body.classList.add('touch');
+let typedCode = '';
+window.addEventListener('keydown', e => {
+  if (!/^[a-z0-9]$/i.test(e.key)) return;
+  const code = ORG.adminCode.toUpperCase();
+  typedCode = (typedCode + e.key.toUpperCase()).slice(-code.length);
+  if (code && typedCode === code) { typedCode = ''; Voice.stop(); location.href = '/admin'; }
+});
 // iPad Safari ignores user-scalable=no; block pinch and double-tap zoom so taps stay on the game.
 ['gesturestart', 'dblclick'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
 document.querySelectorAll('#touch [data-act]').forEach(btn => {
